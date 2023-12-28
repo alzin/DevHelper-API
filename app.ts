@@ -16,7 +16,10 @@ import {
   OpenAIApi,
   ChatCompletionRequestMessageRoleEnum,
 } from "openai";
-const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
+const configuration = new Configuration({ 
+  organization: process.env.OPENAI_ORGANIZATION_ID,
+  apiKey: process.env.OPENAI_API_KEY 
+});
 const openai = new OpenAIApi(configuration);
 
 app.get("/", (req, res) => {
@@ -34,7 +37,15 @@ interface CodeSnippet {
 
 app.post("/analyze-code", async (req, res) => {
   const { code } = req.body;
-  console.log(code);
+
+  // Function to prefix each line with its line number
+  const prefixLinesWithNumbers = (codeArray: string[]): string[] => {
+    return codeArray.map((line, index) => `${index + 1}: ${line}`);
+  };
+  
+  // Prefixing each line of the code with its corresponding number
+  const numberedCode = prefixLinesWithNumbers(code.split('\n')).join('\n');
+  console.log(numberedCode);
 
   try {
     const response = await openai.createChatCompletion({
@@ -44,31 +55,28 @@ app.post("/analyze-code", async (req, res) => {
           role: ChatCompletionRequestMessageRoleEnum.System,
           content: `ONLY GIVE VALID AND PARSIBLE JSON RESPONSE TO BE USED IN TYPESCRIPT. AVOID TELLING ANYTHING ELSE EXCEPT WHAT I WANT AS BELOW:
 
-            As a highly skilled developer proficient in all programming languages, frameworks, SDKs, APIs, architectures, and platforms, perform the following steps:
+            As a senior developer, do the following:
             
-            Step 1: Read and analyze the provided code snippet. Understand the general meaning and the logic behind each line.
-            
-            Step 2: Decompose the code into distinct methods and parts. For each method/part, prepare an explanation tailored for a beginner developer, ensuring clarity and comprehensibility.
-            
-            Step 3: Generate a JSON response that includes: (a) A general explanation of the code's purpose and logic, (b) The programming language used in the code, and (c) A detailed breakdown of the code into its component methods, each accompanied by an explanatory note.
+            Step 1: Read the following code.
+
+            Step 2: Understand the logic behind each line of the code.
             
             The response should be structured as follows:
             
             {
             
-            "general_explanation": "[General explanation of the code]",
-            "detected_language": "[Programming language of the code]",
+            "explanation": "[explanation of the code]",
+            "detected_language": "Programming language of the code",
             "parts": [
             {
-            "explanation": "Explanation of a specific method", 
+            "title": "TITLE OF THE PART", 
             "code": [Exact Start line number, Exact End line number]
             },
             ]
             
             }
-            
-            Step 4 - Check if you put the numbers correctly for the start and end of each part in the JSON before giving it back." +
-            ${code},`,
+            +
+            ${numberedCode},`,
         },
       ],
     });
@@ -79,7 +87,9 @@ app.post("/analyze-code", async (req, res) => {
 
     res.json(parsedObject);
   } catch (error) {
-    res.status(500).json({ error: "Error processing request" });
+    // print the error details
+    console.log(error);
+    res.status(500).json({ error: "Error processing request"});
   }
 });
 
